@@ -30,8 +30,8 @@ from .reference_monitor import Action, ReferenceMonitor
 load_dotenv()
 
 MAX_ITERATIONS = int(os.getenv("PCAS_MAX_ITERATIONS", "10"))
-DEFAULT_MODEL = os.getenv("PCAS_MODEL", "openai/gpt-4o-mini")
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_MODEL = os.getenv("PCAS_MODEL", "gemini-2.0-flash-preview")
+GOOGLE_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 
 @dataclass
@@ -63,13 +63,13 @@ class InstrumentedAgent:
     _client: Optional[openai.OpenAI] = field(init=False, default=None, repr=False)
 
     def __post_init__(self):
-        api_key = os.environ.get("OPENROUTER_API_KEY")
+        api_key = os.environ.get("GOOGLE_API_KEY")
         if not api_key:
             raise EnvironmentError(
-                "OPENROUTER_API_KEY not set. Copy .env.example to .env and fill it in."
+                "GOOGLE_API_KEY not set. Copy .env.example to .env and fill it in."
             )
         self._client = openai.OpenAI(
-            base_url=OPENROUTER_BASE_URL,
+            base_url=GOOGLE_API_BASE_URL,
             api_key=api_key,
         )
 
