@@ -1,0 +1,75 @@
+% ================================================================
+% PCAS Policy: Compensation Strategy Document Access Control
+%
+% Scenario: A "group agent" session has access to sensitive HR
+% documents. Only VP-level principals may read them.
+%
+% Policy enforces:
+%   1. Direct read access requires VP role.
+%   2. Taint propagates through the dependency graph: any result
+%      derived from a sensitive document is itself tainted.
+%   3. Any action by a non-VP that (directly or indirectly) depends
+%      on tainted content is denied — catching indirect leakage.
+% ================================================================
+
+% --- EDB: Sensitive documents ---
+% (Additional docs can be added here)
+SensitiveDoc(compensation_strategy).
+
+% ================================================================
+% STRATUM 1: Allowed (direct access grants)
+% ================================================================
+
+% A VP may read any sensitive document directly.
+Allowed(Entity, read_document, Doc) :-
+    EntityRole(Entity, vp),
+    SensitiveDoc(Doc),
+    ActionArg(_, doc_id, Doc),
+    PendingAction(_, read_document, Entity).
+
+% ================================================================
+% STRATUM 1: Transitive dependency closure
+% (Depends = transitive closure of DirectDepends)
+% ================================================================
+
+% Base case: a direct graph edge implies Depends.
+Depends(Child, Parent) :- DirectDepends(Child, Parent).
+
+% Inductive case: transitivity.
+Depends(Child, Ancestor) :-
+    Depends(Child, Middle),
+    DirectDepends(Middle, Ancestor).
+
+% ================================================================
+% STRATUM 1: Taint propagation
+% ================================================================
+
+% A tool result is tainted if it directly read a sensitive document.
+Tainted(Node) :-
+    IsToolResult(Node, read_document, Doc),
+    SensitiveDoc(Doc).
+
+% Taint propagates: anything that (transitively) depends on a tainted
+% node is itself tainted.
+Tainted(Node) :-
+    Depends(Node, Ancestor),
+    Tainted(Ancestor).
+
+% ================================================================
+% STRATUM 2: Denied (violations — deny overrides allow)
+% ================================================================
+
+% Rule D1: Non-VP cannot read a sensitive document directly.
+Denied(Entity, read_document, no_permission) :-
+    PendingAction(_, read_document, Entity),
+    ActionArg(_, doc_id, Doc),
+    SensitiveDoc(Doc),
+    not EntityRole(Entity, vp).
+
+% Rule D2: Non-VP action that (transitively) depends on tainted
+% content is denied — catches indirect information leakage.
+Denied(Entity, Tool, tainted_dependency) :-
+    PendingAction(ActionId, Tool, Entity),
+    Depends(ActionId, Ancestor),
+    Tainted(Ancestor),
+    not EntityRole(Entity, vp).
