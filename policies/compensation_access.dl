@@ -13,8 +13,8 @@
 % ================================================================
 
 % --- EDB: Sensitive documents ---
-% (Additional docs can be added here)
 SensitiveDoc(compensation_strategy).
+SensitiveDoc(board_presentation).        % second sensitive doc — for isolation test
 
 % ================================================================
 % STRATUM 1: Allowed (direct access grants)
@@ -39,6 +39,15 @@ Allowed(Entity, read_document, Doc) :-
     not SensitiveDoc(Doc),
     ActionArg(_, doc_id, Doc),
     PendingAction(_, read_document, Entity).
+
+% Any authenticated entity may send emails in general.
+% This rule is intentionally broad — the point is that Rule D2 (below)
+% overrides it when the action depends on tainted content.
+% This lets us prove PCAS blocks Bob's send_email specifically BECAUSE
+% of taint, not merely because send_email has no Allowed rule.
+Allowed(Entity, send_email, all) :-
+    EntityRole(Entity, _),
+    PendingAction(_, send_email, Entity).
 
 % ================================================================
 % STRATUM 1: Transitive dependency closure
