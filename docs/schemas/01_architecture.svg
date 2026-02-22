@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 600" width="720" height="600"
+     font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 1 L9 5 L0 9 z" fill="#555"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 1 L9 5 L0 9 z" fill="#c0392b"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 1 L9 5 L0 9 z" fill="#1e8449"/>
+    </marker>
+    <marker id="agr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 1 L9 5 L0 9 z" fill="#7f8c8d"/>
+    </marker>
+  </defs>
+
+  <!-- background -->
+  <rect width="720" height="600" fill="#f7f9fa" rx="6"/>
+
+  <!-- title -->
+  <text x="360" y="26" text-anchor="middle" font-size="16" font-weight="bold" fill="#1c2833">PCAS System Architecture</text>
+
+  <!-- agentic loop border -->
+  <rect x="22" y="38" width="676" height="546" rx="10" fill="none" stroke="#bdc3c7" stroke-width="1.5" stroke-dasharray="9,5"/>
+  <rect x="22" y="30" width="130" height="16" fill="#f7f9fa"/>
+  <text x="28" y="42" font-size="10" fill="#95a5a6" font-weight="bold" letter-spacing="1">AGENTIC LOOP</text>
+
+  <!-- ── 1. User Request ── -->
+  <rect x="265" y="52" width="190" height="36" rx="7" fill="#eaecee" stroke="#bdc3c7" stroke-width="1.5"/>
+  <text x="360" y="75" text-anchor="middle" font-size="13" font-weight="bold" fill="#2c3e50">User Request</text>
+
+  <!-- arrow 1 → 2 -->
+  <line x1="360" y1="88" x2="360" y2="116" stroke="#555" stroke-width="1.8" marker-end="url(#a)"/>
+
+  <!-- ── 2. InstrumentedAgent / LLM ── -->
+  <rect x="120" y="120" width="480" height="58" rx="8" fill="#2e86c1" stroke="#1a5276" stroke-width="1.5"/>
+  <text x="360" y="146" text-anchor="middle" font-size="14" font-weight="bold" fill="white">InstrumentedAgent</text>
+  <text x="360" y="165" text-anchor="middle" font-size="11" fill="#aed6f1">LLM agentic loop · proposes tool calls · tool_choice=auto</text>
+
+  <!-- arrow 2 → 3 -->
+  <line x1="360" y1="178" x2="360" y2="214" stroke="#555" stroke-width="1.8" marker-end="url(#a)"/>
+  <text x="374" y="202" font-size="10" fill="#7f8c8d">proposes tool call</text>
+
+  <!-- ── 3. PCAS Reference Monitor ── -->
+  <rect x="62" y="218" width="596" height="130" rx="8" fill="#5b4fcf" stroke="#4a3db0" stroke-width="1.5"/>
+  <text x="360" y="240" text-anchor="middle" font-size="14" font-weight="bold" fill="white">PCAS Reference Monitor</text>
+  <text x="360" y="257" text-anchor="middle" font-size="10" fill="#c8bff5">intercepts every tool call · evaluates Datalog policy rules · fail-closed (default deny)</text>
+
+  <!-- sub-box: DependencyGraph -->
+  <rect x="82" y="264" width="192" height="72" rx="5" fill="rgba(255,255,255,0.13)" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+  <text x="178" y="282" text-anchor="middle" font-size="11" font-weight="bold" fill="white">DependencyGraph</text>
+  <text x="178" y="297" text-anchor="middle" font-size="10" fill="#c8bff5">backward_slice(</text>
+  <text x="178" y="311" text-anchor="middle" font-size="10" fill="#c8bff5">  context_node_ids )</text>
+  <text x="178" y="325" text-anchor="middle" font-size="10" fill="#c8bff5">→ causal subgraph</text>
+
+  <!-- arrow inside monitor -->
+  <line x1="274" y1="300" x2="312" y2="300" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- sub-box: DatalogEngine -->
+  <rect x="318" y="264" width="320" height="72" rx="5" fill="rgba(255,255,255,0.13)" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+  <text x="478" y="282" text-anchor="middle" font-size="11" font-weight="bold" fill="white">DatalogEngine</text>
+  <text x="478" y="297" text-anchor="middle" font-size="10" fill="#c8bff5">load EDB: EntityRole, IsToolResult, DirectDepends</text>
+  <text x="478" y="311" text-anchor="middle" font-size="10" fill="#c8bff5">evaluate() → query Allowed · query Denied</text>
+  <text x="478" y="325" text-anchor="middle" font-size="10" fill="#c8bff5">Denied overrides Allowed</text>
+
+  <!-- ── DENY branch (left, going back to LLM) ── -->
+  <line x1="155" y1="348" x2="38"  y2="348" stroke="#c0392b" stroke-width="2"/>
+  <line x1="38"  y1="348" x2="38"  y2="149" stroke="#c0392b" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#ar)"/>
+  <rect x="42" y="270" width="52" height="60" rx="4" fill="#fdedec"/>
+  <text x="68" y="294" text-anchor="middle" font-size="10" font-weight="bold" fill="#c0392b">DENY</text>
+  <text x="68" y="308" text-anchor="middle" font-size="10" fill="#c0392b">policy</text>
+  <text x="68" y="322" text-anchor="middle" font-size="10" fill="#c0392b">feedback</text>
+
+  <!-- ── ALLOW arrow (down) ── -->
+  <line x1="480" y1="348" x2="480" y2="386" stroke="#1e8449" stroke-width="2" marker-end="url(#ag)"/>
+  <text x="494" y="372" font-size="10" font-weight="bold" fill="#1e8449">ALLOW</text>
+
+  <!-- ── 4. Tool Implementation ── -->
+  <rect x="120" y="390" width="480" height="90" rx="8" fill="#eafaf1" stroke="#27ae60" stroke-width="1.5"/>
+  <text x="360" y="412" text-anchor="middle" font-size="13" font-weight="bold" fill="#1a5e30">Tool Implementation</text>
+
+  <!-- MockDriveIAM sub-box -->
+  <rect x="142" y="420" width="436" height="48" rx="5" fill="#fef5e7" stroke="#e67e22" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="360" y="440" text-anchor="middle" font-size="11" font-weight="bold" fill="#6e2f04">MockDriveIAM · check_read(entity, doc_id)</text>
+  <text x="360" y="458" text-anchor="middle" font-size="10" fill="#935116">read_document &amp; list_documents only — send_email and other non-Drive tools bypass this layer entirely</text>
+
+  <!-- arrow 4 → 5 -->
+  <line x1="360" y1="480" x2="360" y2="512" stroke="#555" stroke-width="1.8" marker-end="url(#a)"/>
+  <text x="374" y="501" font-size="10" fill="#7f8c8d">tool result</text>
+
+  <!-- ── 5. Graph update ── -->
+  <rect x="162" y="516" width="396" height="52" rx="8" fill="#eaecee" stroke="#bdc3c7" stroke-width="1.5"/>
+  <text x="360" y="538" text-anchor="middle" font-size="12" font-weight="bold" fill="#2c3e50">TOOL_RESULT node added to DependencyGraph</text>
+  <text x="360" y="556" text-anchor="middle" font-size="10" fill="#7f8c8d">context_node_ids updated · taint origin created if SensitiveDoc(doc_id)</text>
+
+  <!-- return arrow (result → LLM context) -->
+  <line x1="558" y1="542" x2="656" y2="542" stroke="#7f8c8d" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <line x1="656" y1="542" x2="656" y2="149" stroke="#7f8c8d" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#agr)"/>
+  <text x="672" y="380" text-anchor="middle" font-size="10" fill="#7f8c8d" transform="rotate(90,672,380)">result returned to LLM context</text>
+</svg>
