@@ -481,10 +481,45 @@ The demo runs all scenarios end-to-end using the Gemini API and prints `[Drive I
 
 ---
 
-## Paper Reference
+## Relation to the Paper
 
 > *Policy Compiler for Secure Agentic Systems*
 > arxiv:2602.16708
 > [https://arxiv.org/abs/2602.16708](https://arxiv.org/abs/2602.16708)
 
-This implementation covers the core enforcement mechanism: causal dependency tracking, taint propagation through the dependency graph, and stratified Datalog policy evaluation. It does not cover the full compiler pipeline described in the paper (automatic policy synthesis from natural language specifications).
+### What this repo implements faithfully
+
+The **runtime enforcement logic** matches the paper's formal model:
+
+- Dependency graph structure (monotonic DAG, three node types)
+- `backward_slice()` as defined in the paper's formalism
+- Taint propagation rules and transitive `Depends` closure
+- Stratified Datalog evaluation with negation-as-failure
+- `Denied` overrides `Allowed` semantics
+- Fail-closed default deny
+- Cross-principal session sharing via `context_node_ids` inheritance
+- Taint-aware context projection (Run 004 — extends the paper)
+
+### What is not implemented
+
+The paper's title names a *compiler*, not just a monitor. There are two stages this repo does not cover:
+
+**1. Differential Datalog compilation**
+
+The paper compiles `.dl` policy rules through [Differential Datalog](https://github.com/vmware/differential-datalog) into native Rust — ahead-of-time compilation to an incremental, high-performance engine. This repo uses a pure-Python naive bottom-up interpreter (`datalog_engine.py`) that recomputes from scratch on every authorization call. The enforcement decisions are identical; the performance characteristics are not.
+
+**2. Non-invasive agent instrumentation**
+
+The paper describes an instrumentation layer that wraps *existing* agent systems at the **HTTP/network boundary** without requiring any security-specific changes to the agent code itself. You point it at a running agent and it intercepts tool calls, messages, and HTTP requests from the outside. This repo takes the opposite approach: `InstrumentedAgent` must be used from the start — the agent has to be written to use it. Retrofitting an existing agent is not supported.
+
+**3. Production deployment infrastructure**
+
+| Paper component | Description | This repo |
+|---|---|---|
+| **Observability Service** | Standalone distributed service maintaining the dependency graph; multiple agents write to it concurrently | Single in-process `DependencyGraph` object |
+| **Authentication (mTLS + OIDC)** | Cryptographically verifies entity identity before every policy evaluation | Plain `entity_roles` dict — no verification |
+| **Multi-agent provenance** | Dependency graph threads through orchestrator → sub-agent calls, preserving cross-agent taint | Single-agent sessions only; cross-session sharing is manual |
+
+### What neither this repo nor the paper covers
+
+Section 4.2 of the paper explicitly states: *"We do not address automatic synthesis of formal policies from natural language policy documents in this work."* Policies in both the paper and this repo are authored by hand. The earlier README note about "automatic policy synthesis from natural language specifications" was inaccurate — that is not a paper claim, and therefore not a gap in this implementation relative to the paper.
