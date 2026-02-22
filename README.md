@@ -282,6 +282,57 @@ The isolation bonus proved that taint is **causal, not global**: Bob's fresh `li
 
 ---
 
+## Security Limits — What PCAS Can and Cannot Protect Against
+
+PCAS addresses a specific slice of the [OWASP Top 10 for Agentic Applications (2026)](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/). Understanding its boundaries matters as much as understanding what it enforces.
+
+### What PCAS protects against
+
+| OWASP Risk | How PCAS helps |
+|---|---|
+| **ASI01** — Agent Goal Hijack | Even when an agent is hijacked by a malicious prompt, PCAS limits the *blast radius*. If the hijacked agent attempts a tool call that violates policy (e.g. exfiltrating tainted data), the monitor blocks the call deterministically regardless of the LLM's reasoning. Proven in Run 003: the fake HR notification convinced the model, but the monitor blocked `send_email`. |
+| **ASI02** — Tool Misuse & Exploitation | PCAS intercepts every tool call before execution. Taint propagation blocks misuse of any tool — not just the one that read the sensitive data. A non-VP cannot exfiltrate via `send_email`, `post_slack`, or any future tool the agent gains access to, as long as the policy covers the relevant `Denied` rule. |
+| **ASI03** — Identity & Privilege Abuse | Role-based rules (`EntityRole`, VP exemptions) are enforced by the Datalog engine, not by the LLM. An attacker cannot argue their way past `not EntityRole(bob, vp)` by injecting text into the prompt — the rule evaluates against the `entity_roles` dict passed to the monitor, not against anything the LLM can influence. |
+| **ASI06** — Memory & Context Poisoning (partial) | Taint propagation means that poisoning the *content* of a sensitive document does not help an attacker — the taint is tracked at the node level, not the content level. Injecting a fake authorization message (as in Run 003) does not remove the `Tainted` fact from the dependency graph. |
+
+### What PCAS does NOT protect against
+
+| OWASP Risk | Why PCAS cannot help |
+|---|---|
+| **ASI01** — Agent Goal Hijack (prevention) | PCAS limits what a hijacked agent can *do via tool calls*. It does not prevent the hijack itself, and it has **zero visibility into the LLM's text output**. If the agent simply writes sensitive data into its final assistant message (no tool call), PCAS never intercepts it. This is a fundamental boundary: PCAS is a tool-call gate, not a content filter. |
+| **ASI04** — Supply Chain Vulnerabilities | If the policy file (`.dl`), the `DatalogEngine`, or the `ReferenceMonitor` itself is compromised, all enforcement guarantees collapse. PCAS assumes the enforcement layer is trusted. An attacker who can modify `compensation_access.dl` or monkey-patch the monitor can bypass everything. |
+| **ASI05** — Unexpected Code Execution | PCAS does not sandbox tool execution. If a tool calls `eval()`, spawns a subprocess, or makes raw network requests internally, that code runs outside the monitor's visibility. The tool's *invocation* is gated; what happens inside the implementation is not. |
+| **ASI06** — Memory & Context Poisoning (full) | If `context_node_ids` is manipulated directly — e.g. by injecting a forged graph node or truncating the context list — the backward slice silently loses taint origins. PCAS trusts that `InstrumentedAgent` correctly populates `context_node_ids`. A compromised or misconfigured agent wrapper breaks this assumption. |
+| **ASI07** — Insecure Inter-Agent Communication | PCAS tracks a single shared dependency graph for one session. In a multi-agent orchestration where Agent A calls Agent B as a sub-agent, B's actions are not automatically wired into A's dependency graph. Cross-agent taint tracking requires explicit instrumentation of the inter-agent boundary. |
+| **ASI08** — Cascading Failures | PCAS is a synchronous gate on tool calls. It offers no protection against availability failures, infinite loops, or resource exhaustion in the agent loop itself. |
+| **ASI09** — Human-Agent Trust Exploitation | Out of scope. PCAS does not assess whether the human operator should have trusted the agent's output or action recommendation. |
+| **ASI10** — Rogue Agents | PCAS can cap what a rogue agent can do through tool calls, but it cannot detect that an agent has gone rogue, halt it, or alert an operator. It is enforcement, not anomaly detection. |
+
+### The key boundary: tool calls only
+
+The most important limit is architectural. PCAS sits at **the tool call boundary** inside the agent loop:
+
+```
+LLM text output ──────────────────────────────►  NOT intercepted
+LLM tool call proposal ──► PCAS monitor ──► tool execution
+```
+
+Any exfiltration that does not go through a tool call is invisible to PCAS. A model that outputs a full compensation table in its response text, or one that is prompted to encode sensitive data in a base64 string embedded in an otherwise innocent-looking message, bypasses the monitor entirely. Complementary controls — output scanning, egress filtering, response classifiers — are needed to close this gap.
+
+### Summary
+
+| Threat | PCAS | Drive IAM | Complementary control needed |
+|---|---|---|---|
+| Bob reads sensitive file directly | ✅ Blocked (D1) | ✅ Blocked (ACL) | — |
+| Bob exfiltrates via `send_email` (tool call) | ✅ Blocked (D2 taint) | ✗ Blind | — |
+| Bob exfiltrates via LLM text response | ✗ Blind | ✗ Blind | Output scanner / egress filter |
+| Prompt injection coerces tool call | ✅ Blocked (taint survives injection) | ✗ Blind | — |
+| Compromised policy file / monitor | ✗ Trust boundary | ✗ | Code signing, supply chain controls |
+| Agent outputs data via rogue subprocess in tool | ✗ Blind (inside tool) | ✗ | Sandboxed tool execution |
+| Cross-agent taint propagation | ✗ Not automatic | ✗ | Explicit inter-agent graph wiring |
+
+---
+
 ## Running the Demo
 
 ```bash
