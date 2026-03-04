@@ -215,7 +215,12 @@ def _compute_strata(rules: list[Rule]) -> dict[str, int]:
     for r in rules:
         if r.is_fact:
             edb_preds.add(r.head.relation)
-            idb_preds.discard(r.head.relation)
+            # FIX: A predicate can legitimately have BOTH seed facts and
+            # derivation rules (i.e., it appears as the head of a fact and also
+            # as the head of a non-fact rule). Such a predicate must remain IDB
+            # for stratification purposes; the fact is just an initial tuple.
+            # Discarding it from IDB would mis-classify the predicate as EDB
+            # and can produce incorrect strata (especially with negation).
 
     stratum: dict[str, int] = {p: 0 for p in edb_preds | idb_preds}
 
